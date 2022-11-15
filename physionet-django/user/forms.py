@@ -831,6 +831,7 @@ class AddEventForm(forms.ModelForm):
         super(AddEventForm, self).__init__(*args, **kwargs)
 
     def save(self):
+        breakpoint()
         Event.objects.create(title=self.cleaned_data['title'],
                              category=self.cleaned_data['category'],
                              host=self.host,
