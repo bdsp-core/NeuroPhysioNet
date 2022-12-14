@@ -319,12 +319,11 @@ class ActiveProject(Metadata, UnpublishedProject, SubmissionInfo):
             if not author.affiliations.all():
                 self.integrity_errors.append('Author {0} has not filled in affiliations'.format(author.user.username))
 
-        #Data Upload Agreement
+        # Data Upload Agreement
         try:
             DataUploadAgreement.objects.get(project_id=self.id)
-        except: #DataUseAgreement.ObjectDdoestNotExist:
+        except DataUploadAgreement.ObjectDdoestNotExist:
             self.integrity_errors.append('Missing required field: Data Upload Agreement')
-            
 
         # Metadata
         for attr in ActiveProject.REQUIRED_FIELDS[self.resource_type.id]:
