@@ -322,7 +322,7 @@ class ActiveProject(Metadata, UnpublishedProject, SubmissionInfo):
         # Data Upload Agreement
         try:
             DataUploadAgreement.objects.get(project_id=self.id)
-        except DataUploadAgreement.ObjectDdoestNotExist:
+        except:
             self.integrity_errors.append('Missing required field: Data Upload Agreement')
 
         # Metadata
