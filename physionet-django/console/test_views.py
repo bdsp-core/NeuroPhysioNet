@@ -51,9 +51,11 @@ class TestState(TestMixin):
         editor = User.objects.get(username='admin')
         response = self.client.post(reverse('submitted_projects'), data={
             'project': project.id, 'editor': editor.id})
+        self.assertEqual(response.status_code, 200)
         project = ActiveProject.objects.get(title='MIT-BIH Arrhythmia Database')
         self.assertTrue(project.editor, editor)
         self.assertEqual(project.submission_status, 20)
+
 
     def test_reassign_editor(self):
         """
@@ -67,6 +69,7 @@ class TestState(TestMixin):
         editor = User.objects.get(username='tompollard')
         response = self.client.post(reverse('submitted_projects'), data={
             'project': project.id, 'editor': editor.id})
+        self.assertEqual(response.status_code, 200)
         project = ActiveProject.objects.get(title='MIT-BIH Arrhythmia Database')
         self.assertTrue(project.editor, editor)
         self.assertEqual(project.submission_status, 20)
@@ -75,8 +78,10 @@ class TestState(TestMixin):
         editor = User.objects.get(username='admin')
         response = self.client.post(reverse('submission_info',
             args=(project.slug,)), data={'editor': editor.id})
+        self.assertEqual(response.status_code, 200)
         project = ActiveProject.objects.get(title='MIT-BIH Arrhythmia Database')
         self.assertTrue(project.editor, editor)
+
 
     def test_edit_reject(self):
         """
@@ -383,6 +388,7 @@ class TestState(TestMixin):
                 'has_copy_right_permission': '0', 'has_human_subject_data': '0',
                 'has_phi': '0', 'submit_upload_agreement': 'submitbutton'})
             self.test_publish()
+
 
         # Sort the list of version numbers
         sorted_versions = []
