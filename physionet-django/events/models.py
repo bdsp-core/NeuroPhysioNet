@@ -6,6 +6,8 @@ from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.models import Permission
 from events.enums import EventCategory
 from events import validators
+from project.modelcomponents.fields import SafeHTMLField
+from project.validators import validate_version, validate_slug
 
 
 class Event(models.Model):
@@ -153,3 +155,97 @@ class EventApplication(models.Model):
             comment_to_applicant (str): The comment to add to the participant about the status.
         """
         self._apply_decision(self.EventApplicationStatus.WITHDRAWN, comment_to_applicant)
+
+
+class EventAgreement(models.Model):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=120, unique=True, validators=[validate_slug])
+    version = models.CharField(max_length=15, default='', validators=[validate_version])
+    is_active = models.BooleanField(default=True)
+    html_content = SafeHTMLField(default='')
+    access_template = SafeHTMLField(default='')
+    creator = models.ForeignKey("user.User", on_delete=models.CASCADE)
+
+    class Meta:
+        default_permissions = ('add',)
+        unique_together = (('name', 'version'),)
+
+    def __str__(self):
+        return self.name
+
+
+class EventAgreementSignature(models.Model):
+    """
+    Log of user signing EventAgreement
+    """
+    event = models.ForeignKey('events.Event', on_delete=models.CASCADE)
+    event_agreement = models.ForeignKey('events.EventAgreement', on_delete=models.CASCADE)
+    user = models.ForeignKey('user.User', on_delete=models.CASCADE,
+                             related_name='event_agreement_signatures')
+    sign_datetime = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        default_permissions = ()
+
+
+class EventDataset(models.Model):
+    """
+    Captures information about datasets for events.
+    """
+
+    class EventDatasetAccessType(models.TextChoices):
+        GOOGLE_BIG_QUERY = 'GBQ', _('Google BigQuery')
+        RESEARCH_ENVIRONMENT = 'RE', _('Research Environment')
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='datasets')
+    dataset = models.ForeignKey("project.PublishedProject", on_delete=models.CASCADE)
+    access_type = models.CharField(default=EventDatasetAccessType.GOOGLE_BIG_QUERY, max_length=10,
+                                   choices=EventDatasetAccessType.choices)
+    is_active = models.BooleanField(default=True)
+    added_datetime = models.DateTimeField(auto_now_add=True)
+    updated_datetime = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.event.title + ' -- ' + self.dataset.title
+
+    def is_accessible(self):
+        """
+        checks if the dataset is accessible to the user
+        Dataset is accessible if:
+        1. The dataset is active
+        2. The event has not ended
+        """
+        if not self.is_active:
+            return False
+
+        if timezone.now().date() > self.event.end_date:
+            return False
+        return True
+
+    def has_access(self, user):
+        """
+        checks if the user has access to the dataset for the Event
+        This method is independent of the PublishedProject.has_access method. it will only check if the user should
+        have access to the dataset for the event.
+        It is expected that the PublishedProject.has_access method will use this method to check if the user has access
+        in case the dataset access is made through an event.
+        """
+        if not self.is_accessible():
+            return False
+
+        # check if the user is a participant of the event or the host of the event
+        # In addition to participants, host should also have access to the dataset of their own event
+        # we dont need to worry about cohosts here as they are already participants
+        if not self.event.participants.filter(user=user).exists() and not self.event.host == user:
+            return False
+
+        # TODO once Event Agreement/DUA is merged, check if the user has accepted the agreement
+
+        return True
+
+    def revoke_dataset_access(self):
+        """
+        Revokes access to the dataset for the event.
+        """
+        self.is_active = False
+        self.save()
